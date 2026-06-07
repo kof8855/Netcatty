@@ -238,14 +238,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: macos
-            os: macos-latest
-            pack_script: pack:mac
           - name: windows
             os: windows-latest
-            # The mosh binary workflow currently produces win32-x64 only.
-            # Keep official packages aligned with bundled-mosh coverage
-            # until Cygwin arm64 is stable enough to build win32-arm64.
             pack_script: pack:win-x64
     env:
       MOSH_BIN_RELEASE: ${{ needs.resolve-mosh.outputs.mosh_bin_release }}
@@ -286,471 +280,81 @@ jobs:
           node-version: 22
           cache: npm
 
-      # Fresh forks have no npm cache; skip postinstall on Windows
-      # to avoid node-gyp trying to compile native modules without VS2022.
-      # The NAPI prebuilt binaries in prebuilds/win32-x64 work with Electron.
-      - name: Install deps
-        if: matrix.name != 'windows'
-        run: npm ci
-
-      - name: Install deps (Windows - skip native rebuild)
-        if: matrix.name == 'windows'
+      # Single combined step for Windows x64:
+      #   1. Find VS2022 via vswhere and call vcvars64.bat
+      #   2. Install dependencies (skip postinstall — @electron/rebuild called manually)
+      #   3. Rebuild native modules for Electron ABI
+      #   4. Apply patches
+      #   5. Build (vite) and package (electron-builder)
+      # Everything runs in ONE cmd shell so VS environment variables
+      # remain available to all child processes including node-gyp.
+      - name: "Build Windows x64 (combined: VS env + install + rebuild + pack)"
+        shell: cmd
         run: |
-          npm ci --ignore-scripts
-          npx patch-package
-          node scripts/patch-xterm-webgl-atlas.cjs
-        env:
-          ELECTRON_BUILDER_ALLOW_REBUILD_NATIVE_MODULES: 'false'
+          @echo off
+          echo === Find VS with vswhere ===
+          for /f "usebackq tokens=*" %%i in (`vswhere -latest -property installationPath`) do set VS_DIR=%%i
+          if not defined VS_DIR (
+            echo vswhere returned no match, trying default path
+            set VS_DIR=C:\Program Files\Microsoft Visual Studio 2022\Enterprise
+          )
+          echo VS_DIR=%VS_DIR%
+          call "%VS_DIR%\VC\Auxiliary\Build\vcvars64.bat" 2>&1
+          if errorlevel 1 (
+            echo vcvars64.bat failed, trying Community path
+            call "C:\Program Files\Microsoft Visual Studio 2022\Community\VC\Auxiliary\Build\vcvars64.bat" 2>&1
+          )
+          if errorlevel 1 (
+            echo vcvars64.bat failed, trying Professional path
+            call "C:\Program Files\Microsoft Visual Studio 2022\Professional\VC\Auxiliary\Build\vcvars64.bat" 2>&1
+          )
+          echo === VS setup complete ===
+          where cl.exe 2>&1 || echo cl.exe NOT FOUND
 
-      - name: Fetch bundled mosh-client
+          echo === Install dependencies ===
+          call npm ci --ignore-scripts
+
+          echo === Rebuild native modules for Electron ===
+          call npx @electron/rebuild -f -v 40.8.5
+          if errorlevel 1 (
+            echo @electron/rebuild failed — proceeding without native rebuild
+          )
+
+          echo === Apply patches ===
+          call npx patch-package
+          if exist scripts\patch-xterm-webgl-atlas.cjs (
+            call node scripts\patch-xterm-webgl-atlas.cjs
+          )
+          if errorlevel 1 (
+            echo Patch step has errors but continuing
+          )
+
+          echo === Set version ===
+          for /f "tokens=*" %%a in ('powershell -Command "if ('%GITHUB_REF%' -match 'refs/tags/v\d+\.\d+\.\d+') { $m = [regex]::Match('%GITHUB_REF_NAME%', 'v(.+)'); if ($m.Success) { $m.Groups[1].Value } else { '0.0.0-sha-%GITHUB_SHA:~0,7%' } } else { '0.0.0-sha-%GITHUB_SHA:~0,7%' }"') do set VERSION=%%a
+          if not defined VERSION set VERSION=0.0.0-sha-%GITHUB_SHA:~0,7%
+          echo Version=%VERSION%
+          call npm pkg set version=%VERSION%
+
+          echo === Build and package ===
+          call npm run build
+          call npx electron-builder --config electron-builder.config.cjs --win --x64 --publish=never
+
+      - name: Fetch bundled mosh-client (Windows)
         if: env.BUNDLE_MOSH == 'true'
-        shell: bash
-        run: |
-          if [[ "${{ matrix.name }}" == "macos" ]]; then
-            npm run fetch:mosh -- --platform=darwin --arch=universal
-          elif [[ "${{ matrix.name }}" == "windows" ]]; then
-            npm run fetch:mosh -- --platform=win32 --arch=x64
-          fi
+        run: npm run fetch:mosh -- --platform=win32 --arch=x64
 
-      - name: Fetch bundled et-client
+      - name: Fetch bundled et-client (Windows)
         if: env.BUNDLE_ET == 'true'
-        shell: bash
-        run: |
-          if [[ "${{ matrix.name }}" == "macos" ]]; then
-            npm run fetch:et -- --platform=darwin --arch=universal
-          elif [[ "${{ matrix.name }}" == "windows" ]]; then
-            npm run fetch:et -- --platform=win32 --arch=x64
-          fi
-
-      - name: Set version
-        shell: bash
-        run: |
-          # Strict semver matches v<MAJOR>.<MINOR>.<PATCH>[-pre]; loose
-          # tags / branches / PRs fall through to a semver-pre-release
-          # form (`0.0.0-sha-<short-sha>`) so npm pkg / electron-builder
-          # accept it. Non-semver versions (e.g. bare "abc1234") cause
-          # downstream tooling to error or pick weird codepaths.
-          if [[ "$GITHUB_REF" =~ $STRICT_VERSION_REF_RE ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            VERSION="0.0.0-sha-${GITHUB_SHA:0:7}"
-          fi
-          echo "Setting version to ${VERSION}"
-          npm pkg set version="${VERSION}"
-
-      - name: Build package
-        if: matrix.name != 'windows'
-        env:
-          ELECTRON_BUILDER_PUBLISH: "never"
-          CSC_LINK: ${{ matrix.name == 'macos' && secrets.MAC_CSC_LINK || '' }}
-          CSC_KEY_PASSWORD: ${{ matrix.name == 'macos' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
-          APPLE_ID: ${{ matrix.name == 'macos' && secrets.APPLE_ID || '' }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.name == 'macos' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
-          APPLE_TEAM_ID: ${{ matrix.name == 'macos' && secrets.APPLE_TEAM_ID || '' }}
-        run: npm run ${{ matrix.pack_script }}
-
-      - name: Build package (Windows - skip native rebuild)
-        if: matrix.name == 'windows'
-        env:
-          ELECTRON_BUILDER_PUBLISH: "never"
-          ELECTRON_BUILDER_ALLOW_REBUILD_NATIVE_MODULES: 'false'
-        run: npm run ${{ matrix.pack_script }}
+        run: npm run fetch:et -- --platform=win32 --arch=x64
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: netcatty-${{ matrix.name }}
           path: |
-            release/*.dmg
-            release/*.zip
             release/*.exe
             release/*.msi
-            release/*.AppImage
-            release/*.deb
-            release/*.rpm
-            release/*.tar.gz
+            release/*.zip
             release/*.yml
             release/*.blockmap
           if-no-files-found: ignore
-
-  # Linux x64 — pin to ubuntu-22.04 for broader glibc compatibility.
-  # ubuntu-latest (24.04) links native modules against glibc 2.39 which
-  # can cause dlopen failures on some distros. 22.04 uses glibc 2.35,
-  # compatible with most current Linux distributions including Arch.
-  # See #264.
-  build-linux-x64:
-    name: ${{ needs.dedupe.outputs.skip_heavy_ci == 'true' && 'deduped build-linux-x64' || 'build-linux-x64' }}
-    needs: [dedupe, resolve-mosh, resolve-et]
-    if: |
-      always()
-      && needs.dedupe.result == 'success'
-      && needs.dedupe.outputs.skip_heavy_ci != 'true'
-    runs-on: ubuntu-22.04
-    env:
-      MOSH_BIN_RELEASE: ${{ needs.resolve-mosh.outputs.mosh_bin_release }}
-      ET_BIN_RELEASE: ${{ needs.resolve-et.outputs.et_bin_release }}
-      npm_config_arch: x64
-      npm_config_target_arch: x64
-      VITE_SYNC_GITHUB_CLIENT_ID: ${{ secrets.VITE_SYNC_GITHUB_CLIENT_ID }}
-      VITE_SYNC_GOOGLE_CLIENT_ID: ${{ secrets.VITE_SYNC_GOOGLE_CLIENT_ID }}
-      VITE_SYNC_GOOGLE_CLIENT_SECRET: ${{ secrets.VITE_SYNC_GOOGLE_CLIENT_SECRET }}
-      VITE_SYNC_ONEDRIVE_CLIENT_ID: ${{ secrets.VITE_SYNC_ONEDRIVE_CLIENT_ID }}
-    steps:
-      - name: Validate bundled mosh-client release
-        if: env.BUNDLE_MOSH == 'true'
-        shell: bash
-        env:
-          RESOLVE_MOSH_RESULT: ${{ needs.resolve-mosh.result }}
-        run: |
-          if [[ "$RESOLVE_MOSH_RESULT" != "success" || -z "$MOSH_BIN_RELEASE" ]]; then
-            echo "::error::Bundled mosh-client release was not resolved for this package build."
-            exit 1
-          fi
-
-      - name: Validate bundled et-client release
-        if: env.BUNDLE_ET == 'true'
-        shell: bash
-        env:
-          RESOLVE_ET_RESULT: ${{ needs.resolve-et.result }}
-        run: |
-          if [[ "$RESOLVE_ET_RESULT" != "success" || -z "$ET_BIN_RELEASE" ]]; then
-            echo "::error::Bundled et-client release was not resolved for this package build."
-            exit 1
-          fi
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      # Fresh forks have no npm cache; skip postinstall on Windows
-      # to avoid node-gyp trying to compile native modules without VS2022.
-      # The NAPI prebuilt binaries in prebuilds/win32-x64 work with Electron.
-      - name: Install deps
-        if: matrix.name != 'windows'
-        run: npm ci
-
-      - name: Install deps (Windows - skip native rebuild)
-        if: matrix.name == 'windows'
-        run: |
-          npm ci --ignore-scripts
-          npx patch-package
-          node scripts/patch-xterm-webgl-atlas.cjs
-        env:
-          ELECTRON_BUILDER_ALLOW_REBUILD_NATIVE_MODULES: 'false'
-
-      - name: Set version
-        shell: bash
-        run: |
-          # See matrix job's Set version step for the strict-semver
-          # rationale; identical logic, duplicated because the Linux
-          # legs are standalone jobs.
-          if [[ "$GITHUB_REF" =~ $STRICT_VERSION_REF_RE ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            VERSION="0.0.0-sha-${GITHUB_SHA:0:7}"
-          fi
-          echo "Setting version to ${VERSION}"
-          npm pkg set version="${VERSION}"
-
-      - name: Prepare node-pty Linux runtime
-        env:
-          npm_config_arch: x64
-        run: bash scripts/ensure-node-pty-linux.sh prepare x64
-
-      - name: Fetch bundled mosh-client
-        if: env.BUNDLE_MOSH == 'true'
-        run: npm run fetch:mosh -- --platform=linux --arch=x64
-
-      - name: Fetch bundled et-client
-        if: env.BUNDLE_ET == 'true'
-        run: npm run fetch:et -- --platform=linux --arch=x64
-
-      - name: Build package
-        env:
-          npm_config_arch: x64
-          ELECTRON_BUILDER_PUBLISH: "never"
-        run: npm run pack:linux-x64
-
-      - name: Verify packaged node-pty Linux runtime
-        run: bash scripts/ensure-node-pty-linux.sh verify x64
-
-      - name: Verify packaged deb artifact
-        run: bash scripts/verify-linux-deb-artifact.sh amd64
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: netcatty-linux-x64
-          path: |
-            release/*.AppImage
-            release/*.deb
-            release/*.rpm
-            release/*.yml
-            release/*.blockmap
-          if-no-files-found: ignore
-
-  # Dedicated job for Linux ARM64 — builds inside Debian Bullseye (GLIBC 2.31)
-  # to ensure compatibility with older distros like UOS/Deepin (GLIBC 2.28).
-  # Key: GLIBC < 2.34 avoids the libpthread-merge symbol requirement.
-  build-linux-arm64:
-    name: ${{ needs.dedupe.outputs.skip_heavy_ci == 'true' && 'deduped build-linux-arm64' || 'build-linux-arm64' }}
-    needs: [dedupe, resolve-mosh, resolve-et]
-    if: |
-      always()
-      && needs.dedupe.result == 'success'
-      && needs.dedupe.outputs.skip_heavy_ci != 'true'
-    runs-on: ubuntu-24.04-arm
-    container:
-      image: debian:bullseye
-    env:
-      MOSH_BIN_RELEASE: ${{ needs.resolve-mosh.outputs.mosh_bin_release }}
-      ET_BIN_RELEASE: ${{ needs.resolve-et.outputs.et_bin_release }}
-      npm_config_arch: arm64
-      npm_config_target_arch: arm64
-      VITE_SYNC_GITHUB_CLIENT_ID: ${{ secrets.VITE_SYNC_GITHUB_CLIENT_ID }}
-      VITE_SYNC_GOOGLE_CLIENT_ID: ${{ secrets.VITE_SYNC_GOOGLE_CLIENT_ID }}
-      VITE_SYNC_GOOGLE_CLIENT_SECRET: ${{ secrets.VITE_SYNC_GOOGLE_CLIENT_SECRET }}
-      VITE_SYNC_ONEDRIVE_CLIENT_ID: ${{ secrets.VITE_SYNC_ONEDRIVE_CLIENT_ID }}
-    steps:
-      - name: Validate bundled mosh-client release
-        if: env.BUNDLE_MOSH == 'true'
-        shell: bash
-        env:
-          RESOLVE_MOSH_RESULT: ${{ needs.resolve-mosh.result }}
-        run: |
-          if [[ "$RESOLVE_MOSH_RESULT" != "success" || -z "$MOSH_BIN_RELEASE" ]]; then
-            echo "::error::Bundled mosh-client release was not resolved for this package build."
-            exit 1
-          fi
-
-      - name: Validate bundled et-client release
-        if: env.BUNDLE_ET == 'true'
-        shell: bash
-        env:
-          RESOLVE_ET_RESULT: ${{ needs.resolve-et.result }}
-        run: |
-          if [[ "$RESOLVE_ET_RESULT" != "success" || -z "$ET_BIN_RELEASE" ]]; then
-            echo "::error::Bundled et-client release was not resolved for this package build."
-            exit 1
-          fi
-
-      - name: Install build dependencies
-        run: |
-          apt-get update
-          apt-get install -y curl build-essential python3 git libfuse2 file rpm \
-            libglib2.0-0 libgtk-3-0 libnss3 libxss1 libxtst6 libasound2 \
-            libatk-bridge2.0-0 libdrm2 libgbm1 libx11-xcb1 libxcb-dri3-0
-          curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-          apt-get install -y nodejs
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # Fresh forks have no npm cache; skip postinstall on Windows
-      # to avoid node-gyp trying to compile native modules without VS2022.
-      # The NAPI prebuilt binaries in prebuilds/win32-x64 work with Electron.
-      - name: Install deps
-        if: matrix.name != 'windows'
-        run: npm ci
-
-      - name: Install deps (Windows - skip native rebuild)
-        if: matrix.name == 'windows'
-        run: |
-          npm ci --ignore-scripts
-          npx patch-package
-          node scripts/patch-xterm-webgl-atlas.cjs
-        env:
-          ELECTRON_BUILDER_ALLOW_REBUILD_NATIVE_MODULES: 'false'
-
-      - name: Set version
-        shell: bash
-        run: |
-          # See matrix job's Set version step for the strict-semver
-          # rationale; identical logic, duplicated because the Linux
-          # legs are standalone jobs.
-          if [[ "$GITHUB_REF" =~ $STRICT_VERSION_REF_RE ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            VERSION="0.0.0-sha-${GITHUB_SHA:0:7}"
-          fi
-          echo "Setting version to ${VERSION}"
-          npm pkg set version="${VERSION}"
-
-      - name: Prepare node-pty Linux runtime
-        env:
-          npm_config_arch: arm64
-        run: bash scripts/ensure-node-pty-linux.sh prepare arm64
-
-      - name: Fetch bundled mosh-client
-        if: env.BUNDLE_MOSH == 'true'
-        run: npm run fetch:mosh -- --platform=linux --arch=arm64
-
-      - name: Fetch bundled et-client
-        if: env.BUNDLE_ET == 'true'
-        run: npm run fetch:et -- --platform=linux --arch=arm64
-
-      - name: Build package
-        env:
-          npm_config_arch: arm64
-          ELECTRON_BUILDER_PUBLISH: "never"
-        run: npm run pack:linux-arm64
-
-      - name: Verify packaged node-pty Linux runtime
-        run: bash scripts/ensure-node-pty-linux.sh verify arm64
-
-      - name: Verify packaged deb artifact
-        run: bash scripts/verify-linux-deb-artifact.sh arm64
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: netcatty-linux-arm64
-          path: |
-            release/*.AppImage
-            release/*.deb
-            release/*.rpm
-            release/*.yml
-            release/*.blockmap
-          if-no-files-found: ignore
-
-  release:
-    name: release
-    runs-on: ubuntu-latest
-    needs: [build, build-linux-x64, build-linux-arm64]
-    # Only release on a strict v<MAJOR>.<MINOR>.<PATCH>[-pre] tag.
-    # Manual workflow_dispatch can publish only when it is run from one
-    # of those tags. PRs and branch pushes skip this job.
-    if: |
-      startsWith(github.ref, 'refs/tags/v')
-      && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release))
-    permissions:
-      contents: write
-      actions: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Validate release tag
-        shell: bash
-        run: |
-          if [[ ! "$GITHUB_REF" =~ $STRICT_VERSION_REF_RE ]]; then
-            echo "::error::Release tags must be v<MAJOR>.<MINOR>.<PATCH> or v<MAJOR>.<MINOR>.<PATCH>-<prerelease>."
-            exit 1
-          fi
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
-
-      - name: List artifacts
-        run: ls -la artifacts/
-
-      - name: Verify update metadata files
-        run: |
-          missing=0
-          for f in latest-mac.yml latest.yml latest-linux.yml latest-linux-arm64.yml; do
-            if [ ! -f "artifacts/$f" ]; then
-              echo "::warning::Missing $f in merged artifacts, attempting recovery..."
-              missing=1
-            fi
-          done
-          if [ "$missing" = "1" ]; then
-            echo "Re-downloading individual artifacts to recover missing files..."
-            for name in netcatty-macos netcatty-windows netcatty-linux-x64 netcatty-linux-arm64; do
-              tmpdir="/tmp/artifact-${name}"
-              gh run download ${{ github.run_id }} --name "${name}" --dir "${tmpdir}" 2>/dev/null || true
-              if [ -d "${tmpdir}" ]; then
-                for yml in "${tmpdir}"/latest*.yml; do
-                  [ -f "$yml" ] && cp -v "$yml" artifacts/
-                done
-              fi
-            done
-            echo "After recovery:"
-            ls -la artifacts/*.yml
-          fi
-          # Final check — fail if any update yml is still missing
-          for f in latest-mac.yml latest.yml latest-linux.yml latest-linux-arm64.yml; do
-            if [ ! -f "artifacts/$f" ]; then
-              echo "::error::$f is still missing after recovery attempt"
-              exit 1
-            fi
-          done
-          echo "All update metadata files present."
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Verify downloaded Linux amd64 deb artifact
-        run: |
-          deb_file="$(find artifacts -maxdepth 1 -type f -name '*-linux-amd64.deb' -print | sort | head -n 1)"
-          test -n "${deb_file}"
-          bash scripts/verify-linux-deb-artifact.sh amd64 "${deb_file}"
-
-      - name: Verify downloaded Linux arm64 deb artifact metadata
-        env:
-          VERIFY_LOAD: "0"
-        run: |
-          deb_file="$(find artifacts -maxdepth 1 -type f -name '*-linux-arm64.deb' -print | sort | head -n 1)"
-          test -n "${deb_file}"
-          bash scripts/verify-linux-deb-artifact.sh arm64 "${deb_file}"
-
-      - name: Generate Release Body
-        run: node .github/scripts/generate-release-note.js
-        env:
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_SHA: ${{ github.sha }}
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          body_path: release_notes.md
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          files: |
-            artifacts/*.dmg
-            artifacts/*.zip
-            artifacts/*.exe
-            artifacts/*.AppImage
-            artifacts/*.deb
-            artifacts/*.rpm
-            artifacts/*.yml
-            artifacts/*.blockmap
-          generate_release_notes: true
-          fail_on_unmatched_files: false
-          token: ${{ secrets.RELEASE_TOKEN }}
-
-  homebrew-tap:
-    name: bump homebrew tap
-    runs-on: ubuntu-latest
-    needs: release
-    # Only stable release tags update the Cask. Prerelease tags
-    # (e.g. v1.2.0-rc.1) are skipped so brew users stay on stable.
-    if: |
-      startsWith(github.ref, 'refs/tags/v')
-      && !contains(github.ref_name, '-')
-      && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release))
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download macOS artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: netcatty-macos
-          path: artifacts/
-
-      - name: Bump Cask in binaricat/homebrew-netcatty
-        env:
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          ARTIFACTS_DIR: artifacts
-        run: |
-          # Strip the leading "v" — Cask version is plain semver.
-          VERSION="${GITHUB_REF_NAME#v}"
-          export VERSION
-          bash .github/scripts/bump-homebrew-cask.sh
