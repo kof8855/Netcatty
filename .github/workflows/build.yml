@@ -286,18 +286,27 @@ jobs:
           node-version: 22
           cache: npm
 
-      # Windows runner: node-gyp needs MSBuild/VC++ to compile native
-      # modules (@serialport/bindings-cpp, etc.) during npm ci postinstall.
-      # setup-msbuild ensures MSBuild is on PATH; GYP_MSVS_VERSION helps
-      # node-gyp locate the right Visual Studio on windows-latest (VS2022).
-      - name: Setup MSBuild (Windows only)
+      # Windows runner: node-gyp needs the full VS C++ build tools
+      # (cl.exe, header files, linker) to compile native modules like
+      # @serialport/bindings-cpp during electron-builder install-app-deps.
+      # windows-latest has VS2022 pre-installed. This action runs vcvarsall.bat
+      # and persists the environment (INCLUDE, LIB, PATH, etc.) to GITHUB_ENV
+      # so subsequent steps can access the VC++ toolchain.
+      - name: Setup VC++ dev environment (Windows only)
         if: matrix.name == 'windows'
-        uses: microsoft/setup-msbuild@v2
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure npm for node-gyp (Windows only)
+        if: matrix.name == 'windows'
+        shell: pwsh
+        run: |
+          npm config set msvs_version 2022
 
       - name: Install deps
         run: npm ci
         env:
           GYP_MSVS_VERSION: 2022
+          npm_config_msvs_version: 2022
 
       - name: Fetch bundled mosh-client
         if: env.BUNDLE_MOSH == 'true'
