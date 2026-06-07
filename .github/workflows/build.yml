@@ -280,22 +280,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Windows runner needs VC++ compiler toolchain for native modules
-      # (e.g. @serialport/bindings-cpp compiled via node-gyp).
-      # ilammy/msvc-dev-cmd activates the VS command prompt environment so
-      # node-gyp can find cl.exe. Only runs on Windows.
-      - name: Setup VC++ env (Windows)
-        if: matrix.name == 'windows'
-        uses: ilammy/msvc-dev-cmd@v1
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
+      # Windows runner: node-gyp needs MSBuild/VC++ to compile native
+      # modules (@serialport/bindings-cpp, etc.) during npm ci postinstall.
+      # setup-msbuild ensures MSBuild is on PATH; GYP_MSVS_VERSION helps
+      # node-gyp locate the right Visual Studio on windows-latest (VS2022).
+      - name: Setup MSBuild (Windows only)
+        if: matrix.name == 'windows'
+        uses: microsoft/setup-msbuild@v2
+
       - name: Install deps
         run: npm ci
+        env:
+          GYP_MSVS_VERSION: 2022
 
       - name: Fetch bundled mosh-client
         if: env.BUNDLE_MOSH == 'true'
