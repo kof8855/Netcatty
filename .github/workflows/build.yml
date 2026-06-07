@@ -340,16 +340,27 @@ jobs:
           echo "Setting version to ${VERSION}"
           npm pkg set version="${VERSION}"
 
+      # Non-Windows: plain shell
       - name: Build package
+        if: matrix.name != 'windows'
         env:
           ELECTRON_BUILDER_PUBLISH: "never"
-          # macOS code signing & notarization (only for macOS builds)
           CSC_LINK: ${{ matrix.name == 'macos' && secrets.MAC_CSC_LINK || '' }}
           CSC_KEY_PASSWORD: ${{ matrix.name == 'macos' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
           APPLE_ID: ${{ matrix.name == 'macos' && secrets.APPLE_ID || '' }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.name == 'macos' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
           APPLE_TEAM_ID: ${{ matrix.name == 'macos' && secrets.APPLE_TEAM_ID || '' }}
         run: npm run ${{ matrix.pack_script }}
+
+      # Windows: activate VS so electron-rebuild inside the pack script can find cl.exe
+      - name: Build package
+        if: matrix.name == 'windows'
+        shell: cmd
+        env:
+          ELECTRON_BUILDER_PUBLISH: "never"
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          npm run ${{ matrix.pack_script }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
