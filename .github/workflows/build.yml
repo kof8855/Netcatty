@@ -286,39 +286,23 @@ jobs:
           node-version: 22
           cache: npm
 
-      # windows-latest has VS2022 but the included node-gyp version may
-      # not auto-detect it. Use vswhere to locate VS and write its
-      # environment variables so subsequent steps (npm ci → postinstall →
-      # electron-rebuild → node-gyp) find the VC++ toolchain.
-      - name: Activate VS2022 dev env (Windows only)
-        if: matrix.name == 'windows'
-        shell: pwsh
-        run: |
-          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath
-          if (-not $vsPath) {
-            Write-Host "vswhere failed or VS2022 not found" -ForegroundColor Red
-            exit 1
-          }
-          Write-Host "Found VS at: $vsPath"
-          # Load and persist VS environment to GITHUB_ENV
-          $devShell = Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
-          Import-Module $devShell
-          # Clear the environment within this step first
-          Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
-          # Persist all VC++ env vars for subsequent steps
-          $envVars = @('INCLUDE','LIB','LIBPATH','PATH','VCINSTALLDIR','VisualStudioVersion','VCToolsVersion','VCToolsInstallDir','WindowsSdkDir','WindowsSDKVersion','WindowsSdkVerBinPath')
-          $envVars | ForEach-Object {
-            $val = [Environment]::GetEnvironmentVariable($_)
-            if ($val) {
-              # GITHUB_ENV format
-              "$_=$val" | Out-File -FilePath $env:GITHUB_ENV -Append
-            }
-          }
-
+      # On a fresh fork, npm ci's postinstall (electron-builder install-app-deps)
+      # tries to compile native modules for Electron but fails because node-gyp
+      # can't find VS2022. Solution: skip scripts during install, then rebuild
+      # inside a VS developer command prompt where cl.exe is on PATH.
       - name: Install deps
+        if: matrix.name != 'windows'
         run: npm ci
-        env:
-          GYP_MSVS_VERSION: 2022
+
+      - name: Install deps & rebuild (Windows)
+        if: matrix.name == 'windows'
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          npm ci --ignore-scripts
+          npx @electron/rebuild -f -v 40.8.5
+          npx patch-package
+          node scripts\patch-xterm-webgl-atlas.cjs
 
       - name: Fetch bundled mosh-client
         if: env.BUNDLE_MOSH == 'true'
