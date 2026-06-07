@@ -2,7 +2,7 @@
  * Terminal Toolbar
  * Displays high-frequency terminal actions and close button in the terminal status bar.
  */
-import { Check, ChevronRight, FolderInput, Languages, MoreVertical, X, Zap, Palette, Search, TextCursorInput } from 'lucide-react';
+import { Check, ChevronRight, Languages, MoreVertical, PanelRight, X, Zap, Palette, Search, TextCursorInput } from 'lucide-react';
 import React, { useState } from 'react';
 import { useI18n } from '../../application/i18n/I18nProvider';
 import { Host } from '../../types';
@@ -15,7 +15,10 @@ import HostKeywordHighlightPopover from './HostKeywordHighlightPopover';
 export interface TerminalToolbarProps {
     status: 'connecting' | 'connected' | 'disconnected';
     host?: Host;
-    onOpenSFTP: () => void;
+    /** ENHANCED: Toggle the entire side panel instead of just SFTP */
+    onToggleSidePanel?: () => void;
+    /** ENHANCED: Whether the side panel is currently open for active state */
+    isSidePanelOpen?: boolean;
     onOpenScripts: () => void;
     onOpenTheme: () => void;
     onUpdateHost?: (host: Host) => void;
@@ -35,7 +38,8 @@ export interface TerminalToolbarProps {
 export const TerminalToolbar: React.FC<TerminalToolbarProps> = ({
     status,
     host,
-    onOpenSFTP,
+    onToggleSidePanel,
+    isSidePanelOpen = false,
     onOpenScripts,
     onOpenTheme,
     onUpdateHost,
@@ -86,25 +90,24 @@ export const TerminalToolbar: React.FC<TerminalToolbarProps> = ({
                 buttonClassName={buttonBase}
             />
 
-            {!hidesSftp && (
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            variant="secondary"
-                            size="icon"
-                            className={cn(buttonBase, status !== 'connected' && "opacity-50")}
-                            aria-label={status === 'connected' ? t("terminal.toolbar.openSftp") : t("terminal.toolbar.availableAfterConnect")}
-                            onClick={onOpenSFTP}
-                            disabled={status !== 'connected'}
-                        >
-                            <FolderInput size={12} />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        {status === 'connected' ? t("terminal.toolbar.openSftp") : t("terminal.toolbar.availableAfterConnect")}
-                    </TooltipContent>
-                </Tooltip>
-            )}
+            {/* ENHANCED: Side panel toggle button (replaced SFTP) */}
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button
+                        variant="secondary"
+                        size="icon"
+                        className={cn(buttonBase, isSidePanelOpen && "text-[color:var(--terminal-toolbar-btn-active)]")}
+                        aria-label={t("terminal.toolbar.toggleSidePanel", "侧面板")}
+                        onClick={onToggleSidePanel}
+                        style={isSidePanelOpen ? activeButtonStyle : undefined}
+                    >
+                        <PanelRight size={12} />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    {isSidePanelOpen ? t("terminal.toolbar.closeSidePanel", "关闭侧面板") : t("terminal.toolbar.openSidePanel", "打开侧面板")}
+                </TooltipContent>
+            </Tooltip>
 
             <Tooltip>
                 <TooltipTrigger asChild>

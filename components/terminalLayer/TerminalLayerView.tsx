@@ -4,7 +4,7 @@ import React from 'react';
 type TerminalLayerViewContext = Record<string, any>;
 
 export function TerminalLayerView({ ctx }: { ctx: TerminalLayerViewContext }) {
-  const { accentMode, activeResizers, activeSidePanelTab, activeTabId, activeWorkspace, AIChatPanelsHost, aiContextsByTabId, AIStateMaintenanceHost, AIStateProvider, Array, Button, cn, composeBarThemeColors, computeSplitHint, customAccent, draggingSessionId, dropHint, editorWordWrap, effectiveHosts, findSplitNode, focusedFontFamilyId, focusedFontFamilyOverridden, focusedFontSize, focusedFontSizeOverridden, focusedFontWeight, focusedFontWeightOverridden, focusedSessionId, focusedThemeOverridden, FolderTree, followAppTerminalTheme, fontSize, getTerminalCwd, handleAddKnownHost, handleAddSelectionToAI, handleBroadcastInput, handleCloseSession, handleCloseSidePanel, handleCommandExecuted, handleComposeSend, handleFontFamilyChangeForFocusedSession, handleFontFamilyResetForFocusedSession, handleFontSizeChangeForFocusedSession, handleFontSizeResetForFocusedSession, handleFontWeightChangeForFocusedSession, handleFontWeightResetForFocusedSession, handleOpenAI, handleOpenScripts, handleOpenSftp, handleOpenTheme, handleOsDetected, handlePendingTerminalSelectionConsumed, handlePendingUploadHandled, handleSessionExit, handleSftpInitialLocationApplied, handleSidePanelResizeStart, handleSnippetFromPanel, handleSnippetExecutorChange, handleStatusChange, handleTerminalCwdChange, handleTerminalDataCapture, handleTerminalFontSizeChange, handleThemeChangeForFocusedSession, handleThemeResetForFocusedSession, handleToggleSftpFromBar, handleToggleWorkspaceComposeBar, handleUpdateHost, handleWorkspaceDrop, hosts, hotkeyScheme, identities, isBroadcastEnabled, isComposeBarOpen, isFocusMode, isSidePanelOpenForCurrentTab, isTerminalLayerVisible, keyBindings, keys, knownHosts, MessageSquare, mountedAiTabIds, mountedSftpTabIds, onHotkeyAction, onSetWorkspaceFocusedSession, onSplitSession, Palette, PanelLeft, PanelRight, pendingTerminalSelectionForAI, previewedOrVisibleThemeId, refocusActiveTerminalSession, refocusTerminalSession, renderFocusModeSidebar, resizing, resolveAIExecutorContext, resolvedPreviewTheme, ScriptsSidePanel, sessionChainHostsMap, sessionHostsMap, sessionLogConfig, sessionSudoAutofillPasswordsMap, sessions, setDropHint, setEditorWordWrap, setIsComposeBarOpen, setResizing, setSidePanelPosition, sftpActiveHost, sftpAutoSync, sftpDefaultViewMode, sftpDoubleClickBehavior, sftpInitialLocationForTab, sftpPendingUploadsForTab, sftpShowHiddenFiles, SftpSidePanel, sftpUseCompressedUpload, sidePanelPosition, sidePanelWidth, snippetPackages, snippets, splitHorizontalHandlersRef, splitVerticalHandlersRef, sshDebugLogsEnabled, t, TerminalComposeBar, terminalFontFamilyId, TerminalPanesHost, terminalSettings, terminalTheme, themePreview, ThemeSidePanel, Tooltip, TooltipContent, TooltipTrigger, updateHosts, validAIScopeTargetIds, workspaceBroadcastHandlersRef, workspaceById, workspaceFocusHandlersRef, workspaceInnerRef, workspaceOuterRef, workspaceOverlayRef, workspaceRectsById, X, Zap } = ctx;
+  const { accentMode, activeResizers, activeSidePanelTab, activeTabId, activeWorkspace, AIChatPanelsHost, aiContextsByTabId, AIStateMaintenanceHost, AIStateProvider, Array, Button, cn, composeBarThemeColors, computeSplitHint, customAccent, customGroups, draggingSessionId, dropHint, editorWordWrap, effectiveHosts, findSplitNode, focusedFontFamilyId, focusedFontFamilyOverridden, focusedFontSize, focusedFontSizeOverridden, focusedFontWeight, focusedFontWeightOverridden, focusedSessionId, focusedThemeOverridden, FolderTree, followAppTerminalTheme, fontSize, getTerminalCwd, groupConfigs, handleAddKnownHost, handleAddSelectionToAI, handleBroadcastInput, handleCloseSession, handleCloseSidePanel, handleCommandExecuted, handleComposeSend, handleFontFamilyChangeForFocusedSession, handleFontFamilyResetForFocusedSession, handleFontSizeChangeForFocusedSession, handleFontSizeResetForFocusedSession, handleFontWeightChangeForFocusedSession, handleFontWeightResetForFocusedSession, handleOpenAI, handleOpenHosts, handleOpenScripts, handleOpenSftp, handleOpenTheme, handleOsDetected, handlePendingTerminalSelectionConsumed, handlePendingUploadHandled, handleSessionExit, handleSftpInitialLocationApplied, handleSidePanelResizeStart, handleSnippetFromPanel, handleSnippetExecutorChange, handleStatusChange, handleTerminalCwdChange, handleTerminalDataCapture, handleTerminalFontSizeChange, handleThemeChangeForFocusedSession, handleThemeResetForFocusedSession, handleToggleSftpFromBar, handleToggleWorkspaceComposeBar, handleUpdateHost, handleWorkspaceDrop, HostListSidePanel, hosts, hotkeyScheme, identities, isBroadcastEnabled, isComposeBarOpen, isFocusMode, isSidePanelOpenForCurrentTab, isTerminalLayerVisible, keyBindings, keys, knownHosts, MessageSquare, Monitor, mountedAiTabIds, mountedSftpTabIds, onHotkeyAction, onSetWorkspaceFocusedSession, onSplitSession, Palette, PanelLeft, PanelRight, pendingTerminalSelectionForAI, previewedOrVisibleThemeId, refocusActiveTerminalSession, refocusTerminalSession, renderFocusModeSidebar, resizing, resolveAIExecutorContext, resolvedPreviewTheme, ScriptsSidePanel, sessionChainHostsMap, sessionHostsMap, sessionLogConfig, sessionSudoAutofillPasswordsMap, sessions, setDropHint, setEditorWordWrap, setIsComposeBarOpen, setResizing, setSidePanelPosition, sftpActiveHost, sftpAutoSync, sftpDefaultViewMode, sftpDoubleClickBehavior, sftpInitialLocationForTab, sftpPendingUploadsForTab, sftpShowHiddenFiles, SftpSidePanel, sftpUseCompressedUpload, sidePanelPosition, sidePanelWidth, snippetPackages, snippets, splitHorizontalHandlersRef, splitVerticalHandlersRef, sshDebugLogsEnabled, t, TerminalComposeBar, terminalFontFamilyId, TerminalPanesHost, terminalSettings, terminalTheme, themePreview, ThemeSidePanel, Tooltip, TooltipContent, TooltipTrigger, updateHosts, validAIScopeTargetIds, workspaceBroadcastHandlersRef, workspaceById, workspaceFocusHandlersRef, workspaceInnerRef, workspaceOuterRef, workspaceOverlayRef, workspaceRectsById, X, Zap } = ctx;
   return (
     <AIStateProvider>
       <AIStateMaintenanceHost validAIScopeTargetIds={validAIScopeTargetIds} />
@@ -64,6 +64,32 @@ export function TerminalLayerView({ ctx }: { ctx: TerminalLayerViewContext }) {
                       borderBottom: '1px solid var(--terminal-sidepanel-border)',
                     }}
                   >
+                    {/* ENHANCED: Host list tab */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          data-tab-id="hosts"
+                          data-tab-type="sidepanel"
+                          data-state={activeSidePanelTab === 'hosts' ? 'active' : 'inactive'}
+                          className="netcatty-tab h-7 w-7 rounded-md p-0 hover:bg-transparent"
+                          style={{
+                            backgroundColor: activeSidePanelTab === 'hosts'
+                              ? 'color-mix(in srgb, var(--terminal-sidepanel-accent) 24%, transparent)'
+                              : 'transparent',
+                            color: activeSidePanelTab === 'hosts'
+                              ? 'var(--terminal-sidepanel-fg)'
+                              : 'var(--terminal-sidepanel-muted)',
+                          }}
+                          onClick={handleOpenHosts}
+                        >
+                          <Monitor size={15} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('terminal.layer.hosts', '主机列表')}</TooltipContent>
+                    </Tooltip>
+                    {/* ENHANCED: End host list tab */}
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
@@ -198,6 +224,42 @@ export function TerminalLayerView({ ctx }: { ctx: TerminalLayerViewContext }) {
                   </div>
                 )}
                 <div className="flex-1 min-h-0 relative">
+                  {/* ENHANCED: Host list sub-panel */}
+                  {activeSidePanelTab === 'hosts' && (
+                    <div className="absolute inset-0 z-10">
+                      <HostListSidePanel
+                        hosts={hosts}
+                        groupConfigs={groupConfigs}
+                        customGroups={customGroups}
+                        onConnectHost={(host) => handleOpenSftp(host)}
+                        onEditHost={(host) => handleUpdateHost(host)}
+                        onNewHost={(groupPath) => {
+                          // Will be handled by the existing HostDetailsPanel
+                          handleUpdateHost({} as Host);
+                        }}
+                        onNewGroup={(parentPath) => {
+                          if (parentPath) {
+                            handleUpdateHost({ group: parentPath } as Host);
+                          } else {
+                            handleUpdateHost({ group: '' } as Host);
+                          }
+                        }}
+                        onEditGroup={(groupPath) => {}}
+                        onDeleteGroup={(groupPath) => {}}
+                        onDuplicateHost={(host) => {
+                          const { id, ...dup } = host;
+                          handleUpdateHost({ ...dup, label: `${host.label} (copy)` } as Host);
+                        }}
+                        onDeleteHost={(host) => {
+                          handleUpdateHost({ ...host, _deleted: true } as any);
+                        }}
+                        onCopyCredentials={(host) => {
+                          navigator.clipboard.writeText(`${host.username || 'root'}@${host.hostname}:${host.port || 22}`);
+                        }}
+                        updateHosts={updateHosts}
+                      />
+                    </div>
+                  )}
                   {/* SFTP sub-panel */}
                   {mountedSftpTabIds.map((tabId) => {
                     const isVisibleSftpPanel = activeTabId === tabId && activeSidePanelTab === 'sftp';

@@ -216,6 +216,7 @@ export function AppView({ ctx }: { ctx: AppViewContext }) {
         <TerminalLayerMount
           hosts={hosts}
           groupConfigs={groupConfigs}
+          customGroups={customGroups}
           proxyProfiles={proxyProfiles}
           keys={keys}
           identities={identities}

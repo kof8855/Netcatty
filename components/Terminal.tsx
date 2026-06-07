@@ -127,6 +127,9 @@ const TerminalComponent: React.FC<TerminalProps> = ({
   onSplitVertical,
   onOpenSftp,
   onTerminalCwdChange,
+  /** ENHANCED: Side panel toggle */
+  onToggleSidePanel,
+  isSidePanelOpen,
   onOpenScripts,
   onOpenTheme,
   isBroadcastEnabled,
@@ -1054,7 +1057,8 @@ const TerminalComponent: React.FC<TerminalProps> = ({
     <TerminalToolbar
       status={status}
       host={host}
-      onOpenSFTP={handleOpenSFTP}
+      onToggleSidePanel={onToggleSidePanel ?? (() => {})}
+      isSidePanelOpen={!!isSidePanelOpen}
       onOpenScripts={onOpenScripts ?? (() => {})}
       onOpenTheme={onOpenTheme ?? (() => {})}
       onUpdateHost={onUpdateHost}

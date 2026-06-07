@@ -13,7 +13,7 @@ import type { ExecutorContext } from '../../infrastructure/ai/cattyAgent/executo
 import Terminal from '../Terminal';
 import { getTerminalPaneSnapshot, parseTerminalPaneSnapshot } from '../terminalPaneVisibility';
 
-export type SidePanelTab = 'sftp' | 'scripts' | 'theme' | 'ai';
+export type SidePanelTab = 'hosts' | 'sftp' | 'scripts' | 'theme' | 'ai';
 
 const LazyAIChatSidePanel = lazy(() =>
   import('../AIChatSidePanel').then((m) => ({ default: m.AIChatSidePanel })),
@@ -418,6 +418,7 @@ AIChatPanelsHost.displayName = 'AIChatPanelsHost';
 export interface TerminalLayerProps {
   hosts: Host[];
   groupConfigs: GroupConfig[];
+  customGroups: string[];
   proxyProfiles: ProxyProfile[];
   keys: SSHKey[];
   identities: Identity[];

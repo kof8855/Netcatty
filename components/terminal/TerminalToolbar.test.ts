@@ -29,7 +29,7 @@ const renderToolbar = (
       React.createElement(TerminalToolbar, {
         status,
         host,
-        onOpenSFTP: () => {},
+        onToggleSidePanel: () => {},
         onOpenScripts: () => {},
         onOpenTheme: () => {},
         ...props,
@@ -37,25 +37,25 @@ const renderToolbar = (
     ),
   );
 
-test("keeps SFTP visible before the terminal overflow menu for SSH sessions", () => {
+test("keeps side panel toggle visible before the terminal overflow menu for SSH sessions", () => {
   const markup = renderToolbar(sshHost);
 
-  const sftpIndex = markup.indexOf('aria-label="Open SFTP"');
+  const toggleIndex = markup.indexOf('aria-label="terminal.toolbar.toggleSidePanel"');
   const moreIndex = markup.indexOf('aria-label="More actions"');
 
-  assert.notEqual(sftpIndex, -1);
+  assert.notEqual(toggleIndex, -1);
   assert.notEqual(moreIndex, -1);
-  assert.ok(sftpIndex < moreIndex);
+  assert.ok(toggleIndex < moreIndex);
 });
 
-test("hides SFTP for local terminal sessions", () => {
+test("keeps side panel toggle visible for local terminal sessions", () => {
   const markup = renderToolbar({
     ...sshHost,
     id: "local-1",
     protocol: "local",
   });
 
-  assert.equal(markup.includes('aria-label="Open SFTP"'), false);
+  assert.ok(markup.includes('aria-label="terminal.toolbar.toggleSidePanel"'));
 });
 
 test("uses the terminal active button color for pressed toolbar actions", () => {

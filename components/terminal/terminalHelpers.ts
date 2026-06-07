@@ -117,6 +117,10 @@ export interface TerminalProps {
     sourceSessionId?: string,
   ) => void;
   onTerminalCwdChange?: (sessionId: string, cwd: string | null) => void;
+  /** ENHANCED: Side panel toggle (replaces onOpenSFTP for toolbar button) */
+  onToggleSidePanel?: () => void;
+  /** ENHANCED: Whether the side panel is currently open */
+  isSidePanelOpen?: boolean;
   onOpenScripts?: () => void;
   onOpenTheme?: () => void;
   isBroadcastEnabled?: boolean;
