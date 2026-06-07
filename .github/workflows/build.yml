@@ -280,6 +280,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Windows runner needs Visual Studio build tools for native modules
+      # (e.g. @serialport/bindings-cpp compiled via node-gyp).
+      # Safe no-op on non-Windows runners.
+      - name: Setup MSBuild (Windows)
+        uses: microsoft/setup-msbuild@v2
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
