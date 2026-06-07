@@ -280,11 +280,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Windows runner needs Visual Studio build tools for native modules
+      # Windows runner needs VC++ compiler toolchain for native modules
       # (e.g. @serialport/bindings-cpp compiled via node-gyp).
-      # Safe no-op on non-Windows runners.
-      - name: Setup MSBuild (Windows)
-        uses: microsoft/setup-msbuild@v2
+      # ilammy/msvc-dev-cmd activates the VS command prompt environment so
+      # node-gyp can find cl.exe. Only runs on Windows.
+      - name: Setup VC++ env (Windows)
+        if: matrix.name == 'windows'
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Setup Node
         uses: actions/setup-node@v4
