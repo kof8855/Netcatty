@@ -25,12 +25,14 @@ module.exports = {
     //     making the app icon look smaller than other apps in taskbar /
     //     Start menu / desktop shortcuts.
     icon: 'public/icon.png',
-    // npmRebuild must stay enabled for macOS and Windows builds — without it,
-    // node-pty's native module is not recompiled for the Electron ABI, causing
-    // "posix_spawnp failed" on macOS. Linux builds set npm_config_arch in CI
-    // and run ensure-node-pty-linux.sh before packaging, so the rebuild is
-    // redundant but harmless there.
-    npmRebuild: true,
+    // npmRebuild must stay enabled for macOS and Linux builds — without it,
+    // node-pty's native module is not recompiled for the Electron ABI.
+    // However, on Windows within forks that lack an npm cache with prebuilt
+    // binaries, node-gyp fails to find VS2022.  The native NAPI modules
+    // (@serialport/bindings-cpp) ship prebuilt in prebuilds/ and work with
+    // Electron 40 without recompilation.  On Windows, we skip the rebuild
+    // and rely on those prebuilt NAPI binaries.
+    npmRebuild: process.platform !== 'win32',
     directories: {
         buildResources: 'build',
         output: 'release'

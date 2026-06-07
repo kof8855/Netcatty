@@ -286,23 +286,21 @@ jobs:
           node-version: 22
           cache: npm
 
-      # On a fresh fork, npm ci's postinstall (electron-builder install-app-deps)
-      # tries to compile native modules for Electron but fails because node-gyp
-      # can't find VS2022. Solution: skip scripts during install, then rebuild
-      # inside a VS developer command prompt where cl.exe is on PATH.
+      # Fresh forks have no npm cache; skip postinstall on Windows
+      # to avoid node-gyp trying to compile native modules without VS2022.
+      # The NAPI prebuilt binaries in prebuilds/win32-x64 work with Electron.
       - name: Install deps
         if: matrix.name != 'windows'
         run: npm ci
 
-      - name: Install deps & rebuild (Windows)
+      - name: Install deps (Windows - skip native rebuild)
         if: matrix.name == 'windows'
-        shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           npm ci --ignore-scripts
-          npx @electron/rebuild -f -v 40.8.5
           npx patch-package
-          node scripts\patch-xterm-webgl-atlas.cjs
+          node scripts/patch-xterm-webgl-atlas.cjs
+        env:
+          ELECTRON_BUILDER_ALLOW_REBUILD_NATIVE_MODULES: 'false'
 
       - name: Fetch bundled mosh-client
         if: env.BUNDLE_MOSH == 'true'
@@ -340,7 +338,6 @@ jobs:
           echo "Setting version to ${VERSION}"
           npm pkg set version="${VERSION}"
 
-      # Non-Windows: plain shell
       - name: Build package
         if: matrix.name != 'windows'
         env:
@@ -352,15 +349,12 @@ jobs:
           APPLE_TEAM_ID: ${{ matrix.name == 'macos' && secrets.APPLE_TEAM_ID || '' }}
         run: npm run ${{ matrix.pack_script }}
 
-      # Windows: activate VS so electron-rebuild inside the pack script can find cl.exe
-      - name: Build package
+      - name: Build package (Windows - skip native rebuild)
         if: matrix.name == 'windows'
-        shell: cmd
         env:
           ELECTRON_BUILDER_PUBLISH: "never"
-        run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-          npm run ${{ matrix.pack_script }}
+          ELECTRON_BUILDER_ALLOW_REBUILD_NATIVE_MODULES: 'false'
+        run: npm run ${{ matrix.pack_script }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -433,8 +427,21 @@ jobs:
           node-version: 22
           cache: npm
 
+      # Fresh forks have no npm cache; skip postinstall on Windows
+      # to avoid node-gyp trying to compile native modules without VS2022.
+      # The NAPI prebuilt binaries in prebuilds/win32-x64 work with Electron.
       - name: Install deps
+        if: matrix.name != 'windows'
         run: npm ci
+
+      - name: Install deps (Windows - skip native rebuild)
+        if: matrix.name == 'windows'
+        run: |
+          npm ci --ignore-scripts
+          npx patch-package
+          node scripts/patch-xterm-webgl-atlas.cjs
+        env:
+          ELECTRON_BUILDER_ALLOW_REBUILD_NATIVE_MODULES: 'false'
 
       - name: Set version
         shell: bash
@@ -544,8 +551,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Fresh forks have no npm cache; skip postinstall on Windows
+      # to avoid node-gyp trying to compile native modules without VS2022.
+      # The NAPI prebuilt binaries in prebuilds/win32-x64 work with Electron.
       - name: Install deps
+        if: matrix.name != 'windows'
         run: npm ci
+
+      - name: Install deps (Windows - skip native rebuild)
+        if: matrix.name == 'windows'
+        run: |
+          npm ci --ignore-scripts
+          npx patch-package
+          node scripts/patch-xterm-webgl-atlas.cjs
+        env:
+          ELECTRON_BUILDER_ALLOW_REBUILD_NATIVE_MODULES: 'false'
 
       - name: Set version
         shell: bash
